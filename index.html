@@ -132,7 +132,7 @@ input{
     </div>
     <div class="field">
       <label>Daily duration (minutes)</label>
-      <input id="itemMinutes" type="number" min="1" step="1" inputmode="numeric" placeholder="30">
+      <input id="itemMinutes" type="number" min="0" step="1" inputmode="numeric" placeholder="30">
     </div>
     <div class="modalButtons">
       <button id="cancelItem">Cancel</button>
@@ -346,19 +346,26 @@ document.getElementById("cancelItem").onclick=()=>itemModal.classList.remove("sh
 document.getElementById("saveItem").onclick=()=>{
   const name=document.getElementById("itemName").value.trim();
   const mins=parseInt(document.getElementById("itemMinutes").value,10);
-  if(!name || !mins || mins<1) return;
-  const duration=mins*60;
+  if(!name || Number.isNaN(mins) || mins<0) return;
 
   if(editingItemRef && editingItemRef.itemId){
     const m=state.modules.find(x=>x.id===editingItemRef.moduleId);
     const i=m?.items.find(x=>x.id===editingItemRef.itemId);
     if(i){
-      const wasFull=i.remaining===i.duration;
-      i.name=name;
-      i.duration=duration;
-      if(wasFull || i.remaining>duration) i.remaining=duration;
+      if(mins===0){
+        if(state.active===i.id) state.active=null;
+        m.items=m.items.filter(x=>x.id!==i.id);
+      }else{
+        const duration=mins*60;
+        const wasFull=i.remaining===i.duration;
+        i.name=name;
+        i.duration=duration;
+        if(wasFull || i.remaining>duration) i.remaining=duration;
+      }
     }
   }else{
+    if(mins<1) return;
+    const duration=mins*60;
     const m=state.modules.find(x=>x.id===editingItemRef.moduleId);
     if(m) m.items.push({id:uid(),name,duration,remaining:duration});
   }
