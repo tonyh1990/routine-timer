@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0f172a" />
+<title>Routine Timers</title>
+<style>
+:root{
+  --bg:#0f172a; --panel:#111827; --panel2:#1f2937; --text:#f8fafc;
+  --muted:#94a3b8; --accent:#38bdf8; --ok:#34d399; --danger:#fb7185;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  margin:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;
+  background:linear-gradient(180deg,#0f172a,#020617);color:var(--text);min-height:100vh;
+}
+.wrap{max-width:760px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 18px) 14px calc(env(safe-area-inset-bottom) + 28px)}
+h1{font-size:30px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:14px;margin-bottom:14px}
+button,input{font:inherit}
+button{
+  border:0;border-radius:14px;padding:12px 14px;font-weight:700;
+  background:var(--panel2);color:white;min-height:44px
+}
+button.primary{background:var(--accent);color:#082f49}
+button.danger{color:#fecdd3}
+button.small{padding:9px 11px;font-size:14px}
+.topbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+
+.tabs{
+  display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;margin-bottom:6px;
+  scrollbar-width:none
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex:0 0 auto;white-space:nowrap;background:#0b1220;color:var(--muted);
+  border:1px solid rgba(255,255,255,.08)
+}
+.tab.active{background:var(--accent);color:#082f49}
+
+.module{
+  background:rgba(17,24,39,.94);border:1px solid rgba(255,255,255,.08);
+  border-radius:22px;padding:16px;box-shadow:0 8px 28px rgba(0,0,0,.22)
+}
+.moduleHeader{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px
+}
+.moduleTitle{font-size:23px;font-weight:800}
+.moduleMeta{color:var(--muted);font-size:13px;margin-top:3px}
+.moduleActions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.items{display:grid;grid-template-columns:1fr;gap:12px}
+.items.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.item{
+  background:#0b1220;border-radius:18px;padding:14px;min-width:0
+}
+.itemTop{display:block}
+.itemName{font-size:18px;font-weight:750;width:100%;overflow-wrap:anywhere}
+.itemState{font-size:12px;color:var(--muted);text-align:right;flex:0 0 auto}
+.clock{
+  font-variant-numeric:tabular-nums;font-size:38px;font-weight:850;letter-spacing:-1px;
+  margin:12px 0 10px;white-space:nowrap
+}
+.bar{height:7px;border-radius:999px;background:#111827;overflow:hidden}
+.fill{height:100%;background:var(--accent);transition:width .25s linear}
+.controls{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}
+.done .clock{color:var(--ok)} .done .fill{background:var(--ok)}
+.empty{color:var(--muted);padding:24px 8px;text-align:center}
+.footer{color:var(--muted);font-size:12px;text-align:center;margin-top:18px}
+
+.modalBackdrop{
+  position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:flex-end;z-index:20
+}
+.modalBackdrop.show{display:flex}
+.modal{
+  width:100%;max-width:620px;margin:0 auto;background:#111827;border-radius:24px 24px 0 0;
+  padding:18px 16px calc(env(safe-area-inset-bottom) + 18px)
+}
+.modal h2{margin:0 0 14px;font-size:22px}
+.field{margin:12px 0}
+label{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}
+input{
+  width:100%;padding:13px 14px;border-radius:13px;border:1px solid rgba(255,255,255,.12);
+  background:#0b1220;color:white;font-size:17px
+}
+.modalButtons{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+
+@media (max-width:420px){
+  .clock{font-size:32px}
+  .item{padding:11px}
+  .controls{gap:6px}
+  .controls button{padding:10px 6px;font-size:13px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Routine Timers</h1>
+  <div class="sub">Each routine has its own tab. Items are shown two per row when space allows.</div>
+
+  <div class="topbar">
+    <button class="primary" id="addModuleBtn">+ Add Module</button>
+    <button id="resetDayBtn">Reset Today</button>
+  </div>
+
+  <div id="tabs" class="tabs"></div>
+  <div id="moduleView"></div>
+
+  <div class="footer">Only one timer runs at a time. Your modules and remaining time stay on this device.</div>
+</div>
+
+<div class="modalBackdrop" id="moduleModal">
+  <div class="modal">
+    <h2 id="moduleModalTitle">Add Module</h2>
+    <div class="field">
+      <label>Module name</label>
+      <input id="moduleName" placeholder="e.g. Morning Routine">
+    </div>
+    <div class="modalButtons">
+      <button id="cancelModule">Cancel</button>
+      <button class="primary" id="saveModule">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modalBackdrop" id="itemModal">
+  <div class="modal">
+    <h2 id="itemModalTitle">Add Item</h2>
+    <div class="field">
+      <label>Item name</label>
+      <input id="itemName" placeholder="e.g. Reading">
+    </div>
+    <div class="field">
+      <label>Daily duration (minutes)</label>
+      <input id="itemMinutes" type="number" min="1" step="1" inputmode="numeric" placeholder="30">
+    </div>
+    <div class="modalButtons">
+      <button id="cancelItem">Cancel</button>
+      <button class="primary" id="saveItem">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modalBackdrop" id="logModal">
+  <div class="modal">
+    <h2>Log Completed Time</h2>
+    <div class="field">
+      <label id="logItemLabel">Minutes completed</label>
+      <input id="logMinutes" type="number" min="1" step="1" inputmode="numeric" placeholder="15">
+    </div>
+    <div class="modalButtons">
+      <button id="cancelLog">Cancel</button>
+      <button class="primary" id="saveLog">Apply</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY="routineTimers_v4";
+let editingModuleId=null;
+let editingItemRef=null;
+let loggingItemId=null;
+
+function uid(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
+function todayKey(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function freshState(){
+  return {date:todayKey(),active:null,lastTick:Date.now(),activeModuleId:null,modules:[]};
+}
+function migrate(){
+  for(const oldKey of ["routineTimers_v3","routineTimers_v2"]){
+    try{
+      const old=JSON.parse(localStorage.getItem(oldKey));
+      if(old && Array.isArray(old.modules)){
+        old.date=old.date||todayKey();
+        old.active=old.active||null;
+        old.lastTick=old.lastTick||Date.now();
+        old.activeModuleId=old.activeModuleId || (old.modules[0]?.id ?? null);
+        return old;
+      }
+    }catch(e){}
+  }
+  return null;
+}
+function load(){
+  try{
+    let s=JSON.parse(localStorage.getItem(KEY));
+    if(!s) s=migrate();
+    if(!s) return freshState();
+    if(s.date!==todayKey()){
+      s.date=todayKey(); s.active=null; s.lastTick=Date.now();
+      for(const m of s.modules||[]) for(const i of m.items||[]) i.remaining=i.duration;
+    }
+    if(!s.activeModuleId || !s.modules.some(m=>m.id===s.activeModuleId)){
+      s.activeModuleId=s.modules[0]?.id ?? null;
+    }
+    return s;
+  }catch(e){ return freshState(); }
+}
+let state=load();
+
+function save(){
+  state.lastTick=Date.now();
+  localStorage.setItem(KEY,JSON.stringify(state));
+}
+function findItem(itemId){
+  for(const m of state.modules){
+    const i=m.items.find(x=>x.id===itemId);
+    if(i) return i;
+  }
+  return null;
+}
+function applyElapsed(){
+  if(!state.active) return;
+  const item=findItem(state.active);
+  if(!item){ state.active=null; return; }
+  const now=Date.now();
+  const elapsed=Math.floor((now-state.lastTick)/1000);
+  if(elapsed>0){
+    item.remaining=Math.max(0,item.remaining-elapsed);
+    state.lastTick+=elapsed*1000;
+    if(item.remaining===0){
+      state.active=null;
+      if(navigator.vibrate) navigator.vibrate([150,80,150]);
+    }
+    localStorage.setItem(KEY,JSON.stringify(state));
+  }
+}
+function fmt(sec){
+  sec=Math.max(0,Math.floor(sec));
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+  return h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${m}:${String(s).padStart(2,"0")}`;
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+}
+
+function render(){
+  applyElapsed();
+
+  const tabs=document.getElementById("tabs");
+  const view=document.getElementById("moduleView");
+  tabs.innerHTML="";
+  view.innerHTML="";
+
+  if(state.modules.length===0){
+    view.innerHTML='<div class="empty">No modules yet. Tap “Add Module” to create one.</div>';
+    return;
+  }
+
+  if(!state.activeModuleId || !state.modules.some(m=>m.id===state.activeModuleId)){
+    state.activeModuleId=state.modules[0].id;
+  }
+
+  for(const m of state.modules){
+    const b=document.createElement("button");
+    b.className="tab"+(m.id===state.activeModuleId?" active":"");
+    b.dataset.action="switchTab";
+    b.dataset.mid=m.id;
+    b.textContent=m.name;
+    tabs.appendChild(b);
+  }
+
+  const m=state.modules.find(x=>x.id===state.activeModuleId);
+  if(!m) return;
+
+  const total=(m.items||[]).reduce((a,x)=>a+x.duration,0);
+  const section=document.createElement("section");
+  section.className="module";
+  section.innerHTML=`
+    <div class="moduleHeader">
+      <div>
+        <div class="moduleTitle">${escapeHtml(m.name)}</div>
+        <div class="moduleMeta">${m.items.length} item${m.items.length===1?"":"s"} · ${Math.round(total/60)} min total</div>
+      </div>
+      <div class="moduleActions">
+        <button class="small primary" data-action="addItem" data-mid="${m.id}">+ Item</button>
+        <button class="small" data-action="copyModule" data-mid="${m.id}">Copy</button>
+        <button class="small" data-action="editModule" data-mid="${m.id}">Edit</button>
+        <button class="small danger" data-action="deleteModule" data-mid="${m.id}">Delete</button>
+      </div>
+    </div>
+    <div class="items ${m.items.length>1?"two":""}"></div>`;
+
+  const itemsRoot=section.querySelector(".items");
+  if(m.items.length===0){
+    itemsRoot.innerHTML='<div class="empty">No items in this module yet.</div>';
+  }else{
+    for(const i of m.items){
+      const active=state.active===i.id;
+      const pct=Math.max(0,Math.min(100,i.remaining/i.duration*100));
+      const doneMinutes=Math.round((i.duration-i.remaining)/60);
+      const totalMinutes=Math.round(i.duration/60);
+
+      const el=document.createElement("div");
+      el.className="item"+(i.remaining===0?" done":"");
+      el.innerHTML=`
+        <div class="itemTop">
+          <div class="itemName">${escapeHtml(i.name)}</div>
+        </div>
+        <div class="clock">${fmt(i.remaining)}</div>
+        <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
+        <div class="controls">
+          <button class="primary" data-action="toggle" data-iid="${i.id}">
+            ${active?"Pause":i.remaining===0?"Done":"Start"}
+          </button>
+          <button data-action="logTime" data-iid="${i.id}">Log time</button>
+          <button data-action="editItem" data-mid="${m.id}" data-iid="${i.id}">Edit</button>
+          <button class="danger" data-action="resetItem" data-iid="${i.id}">Reset</button>
+        </div>`;
+      itemsRoot.appendChild(el);
+    }
+  }
+
+  view.appendChild(section);
+}
+
+// Module modal
+const moduleModal=document.getElementById("moduleModal");
+document.getElementById("addModuleBtn").onclick=()=>{
+  editingModuleId=null;
+  document.getElementById("moduleModalTitle").textContent="Add Module";
+  document.getElementById("moduleName").value="";
+  moduleModal.classList.add("show");
+  setTimeout(()=>document.getElementById("moduleName").focus(),100);
+};
+document.getElementById("cancelModule").onclick=()=>moduleModal.classList.remove("show");
+document.getElementById("saveModule").onclick=()=>{
+  const name=document.getElementById("moduleName").value.trim();
+  if(!name) return;
+  if(editingModuleId){
+    const m=state.modules.find(x=>x.id===editingModuleId);
+    if(m) m.name=name;
+  }else{
+    const newModule={id:uid(),name,items:[]};
+    state.modules.push(newModule);
+    state.activeModuleId=newModule.id;
+  }
+  save(); moduleModal.classList.remove("show"); render();
+};
+
+// Item modal
+const itemModal=document.getElementById("itemModal");
+document.getElementById("cancelItem").onclick=()=>itemModal.classList.remove("show");
+document.getElementById("saveItem").onclick=()=>{
+  const name=document.getElementById("itemName").value.trim();
+  const mins=parseInt(document.getElementById("itemMinutes").value,10);
+  if(!name || !mins || mins<1) return;
+  const duration=mins*60;
+
+  if(editingItemRef && editingItemRef.itemId){
+    const m=state.modules.find(x=>x.id===editingItemRef.moduleId);
+    const i=m?.items.find(x=>x.id===editingItemRef.itemId);
+    if(i){
+      const wasFull=i.remaining===i.duration;
+      i.name=name;
+      i.duration=duration;
+      if(wasFull || i.remaining>duration) i.remaining=duration;
+    }
+  }else{
+    const m=state.modules.find(x=>x.id===editingItemRef.moduleId);
+    if(m) m.items.push({id:uid(),name,duration,remaining:duration});
+  }
+
+  save(); itemModal.classList.remove("show"); render();
+};
+
+// Log modal
+const logModal=document.getElementById("logModal");
+document.getElementById("cancelLog").onclick=()=>logModal.classList.remove("show");
+document.getElementById("saveLog").onclick=()=>{
+  const mins=parseInt(document.getElementById("logMinutes").value,10);
+  const item=findItem(loggingItemId);
+  if(!item || !mins || mins<1) return;
+
+  if(state.active===item.id){
+    applyElapsed();
+    state.active=null;
+  }
+
+  item.remaining=Math.max(0,item.remaining-mins*60);
+  save(); logModal.classList.remove("show"); render();
+};
+
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  const a=b.dataset.action; if(!a) return;
+  applyElapsed();
+
+  if(a==="switchTab"){
+    state.activeModuleId=b.dataset.mid;
+    save(); render();
+  }
+
+  if(a==="addItem"){
+    editingItemRef={moduleId:b.dataset.mid,itemId:null};
+    document.getElementById("itemModalTitle").textContent="Add Item";
+    document.getElementById("itemName").value="";
+    document.getElementById("itemMinutes").value="";
+    itemModal.classList.add("show");
+    setTimeout(()=>document.getElementById("itemName").focus(),100);
+  }
+
+  if(a==="copyModule"){
+    const source=state.modules.find(x=>x.id===b.dataset.mid);
+    if(source){
+      const copy={
+        id:uid(),
+        name:`${source.name} Copy`,
+        items:source.items.map(i=>({
+          id:uid(),
+          name:i.name,
+          duration:i.duration,
+          remaining:i.duration
+        }))
+      };
+      const idx=state.modules.findIndex(x=>x.id===source.id);
+      state.modules.splice(idx+1,0,copy);
+      state.activeModuleId=copy.id;
+      save(); render();
+    }
+  }
+
+  if(a==="editModule"){
+    editingModuleId=b.dataset.mid;
+    const m=state.modules.find(x=>x.id===editingModuleId);
+    document.getElementById("moduleModalTitle").textContent="Edit Module";
+    document.getElementById("moduleName").value=m?.name||"";
+    moduleModal.classList.add("show");
+  }
+
+  if(a==="deleteModule"){
+    const mid=b.dataset.mid;
+    const m=state.modules.find(x=>x.id===mid);
+    if(m && confirm(`Delete "${m.name}" and all its items?`)){
+      const ids=new Set(m.items.map(x=>x.id));
+      if(ids.has(state.active)) state.active=null;
+      const idx=state.modules.findIndex(x=>x.id===mid);
+      state.modules=state.modules.filter(x=>x.id!==mid);
+
+      if(state.activeModuleId===mid){
+        state.activeModuleId=
+          state.modules[idx]?.id ??
+          state.modules[idx-1]?.id ??
+          state.modules[0]?.id ??
+          null;
+      }
+
+      save(); render();
+    }
+  }
+
+  if(a==="toggle"){
+    const iid=b.dataset.iid, item=findItem(iid);
+    if(!item || item.remaining===0) return;
+    state.active=state.active===iid?null:iid;
+    state.lastTick=Date.now();
+    save(); render();
+  }
+
+  if(a==="logTime"){
+    const iid=b.dataset.iid,item=findItem(iid);
+    if(!item) return;
+    loggingItemId=iid;
+    document.getElementById("logItemLabel").textContent=`Minutes completed for ${item.name}`;
+    document.getElementById("logMinutes").value="";
+    logModal.classList.add("show");
+    setTimeout(()=>document.getElementById("logMinutes").focus(),100);
+  }
+
+  if(a==="resetItem"){
+    const iid=b.dataset.iid,item=findItem(iid);
+    if(item){
+      item.remaining=item.duration;
+      if(state.active===iid) state.active=null;
+      save(); render();
+    }
+  }
+
+  if(a==="editItem"){
+    const mid=b.dataset.mid,iid=b.dataset.iid;
+    const m=state.modules.find(x=>x.id===mid);
+    const i=m?.items.find(x=>x.id===iid);
+    if(!i) return;
+    editingItemRef={moduleId:mid,itemId:iid};
+    document.getElementById("itemModalTitle").textContent="Edit Item";
+    document.getElementById("itemName").value=i.name;
+    document.getElementById("itemMinutes").value=Math.round(i.duration/60);
+    itemModal.classList.add("show");
+  }
+});
+
+document.getElementById("resetDayBtn").onclick=()=>{
+  if(confirm("Reset every item to its full daily duration?")){
+    state.active=null;
+    for(const m of state.modules) for(const i of m.items) i.remaining=i.duration;
+    save(); render();
+  }
+};
+
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"){
+    if(state.date!==todayKey()){
+      state.date=todayKey();
+      state.active=null;
+      for(const m of state.modules) for(const i of m.items) i.remaining=i.duration;
+    }
+    applyElapsed();
+    save();
+    render();
+  }else{
+    applyElapsed();
+    save();
+  }
+});
+
+setInterval(render,500);
+render();
+</script>
+</body>
+</html>
