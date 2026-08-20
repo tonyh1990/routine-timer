@@ -45,12 +45,10 @@ button.small{padding:9px 11px;font-size:14px}
   background:rgba(17,24,39,.94);border:1px solid rgba(255,255,255,.08);
   border-radius:22px;padding:16px;box-shadow:0 8px 28px rgba(0,0,0,.22)
 }
-.moduleHeader{
-  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px
-}
+.moduleHeader{margin-bottom:12px}
 .moduleTitle{font-size:23px;font-weight:800}
-.moduleMeta{color:var(--muted);font-size:13px;margin-top:3px}
-.moduleActions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.moduleMeta{color:var(--muted);font-size:13px;margin-top:4px}
+.moduleActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .items{display:grid;grid-template-columns:1fr;gap:12px}
 .items.two{grid-template-columns:repeat(2,minmax(0,1fr))}
 .item{
@@ -269,14 +267,13 @@ function render(){
   if(!m) return;
 
   const total=(m.items||[]).reduce((a,x)=>a+x.duration,0);
+  const remainingTotal=(m.items||[]).reduce((a,x)=>a+x.remaining,0);
   const section=document.createElement("section");
   section.className="module";
   section.innerHTML=`
     <div class="moduleHeader">
-      <div>
-        <div class="moduleTitle">${escapeHtml(m.name)}</div>
-        <div class="moduleMeta">${m.items.length} item${m.items.length===1?"":"s"} · ${Math.round(total/60)} min total</div>
-      </div>
+      <div class="moduleTitle">${escapeHtml(m.name)}</div>
+      <div class="moduleMeta">${Math.round(remainingTotal/60)}/${Math.round(total/60)} min remaining</div>
       <div class="moduleActions">
         <button class="small primary" data-action="addItem" data-mid="${m.id}">+ Item</button>
         <button class="small" data-action="copyModule" data-mid="${m.id}">Copy</button>
