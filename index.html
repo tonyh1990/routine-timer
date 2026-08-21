@@ -49,22 +49,20 @@ button.small{padding:9px 11px;font-size:14px}
 .moduleTitle{font-size:23px;font-weight:800}
 .moduleMeta{color:var(--muted);font-size:13px;margin-top:4px}
 .moduleActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-.items{display:grid;grid-template-columns:1fr;gap:12px}
-.items.two{grid-template-columns:repeat(2,minmax(0,1fr))}
-.item{
-  background:#0b1220;border-radius:18px;padding:14px;min-width:0
-}
-.itemTop{display:block}
-.itemName{font-size:18px;font-weight:750;width:100%;overflow-wrap:anywhere}
-.itemState{font-size:12px;color:var(--muted);text-align:right;flex:0 0 auto}
-.clock{
-  font-variant-numeric:tabular-nums;font-size:38px;font-weight:850;letter-spacing:-1px;
-  margin:12px 0 10px;white-space:nowrap
-}
-.bar{height:7px;border-radius:999px;background:#111827;overflow:hidden}
+.itemTiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.itemTile{min-width:0;min-height:58px;border-radius:14px;padding:12px 10px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:15px;font-weight:800;line-height:1.2;overflow-wrap:anywhere;border:2px solid transparent;color:white}
+.itemTile.notStarted{background:#2563eb}
+.itemTile.inProgress{background:#ea580c}
+.itemTile.finished{background:#16a34a}
+.itemTile.selected{border-color:white;box-shadow:0 0 0 2px rgba(255,255,255,.15)}
+.activeCard{background:#0b1220;border-radius:20px;padding:16px}
+.activeCardHeader{font-size:22px;font-weight:800;overflow-wrap:anywhere}
+.clock{font-variant-numeric:tabular-nums;font-size:46px;font-weight:850;letter-spacing:-1px;margin:14px 0 10px;white-space:nowrap}
+.bar{height:8px;border-radius:999px;background:#111827;overflow:hidden}
 .fill{height:100%;background:var(--accent);transition:width .25s linear}
-.controls{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}
-.done .clock{color:var(--ok)} .done .fill{background:var(--ok)}
+.controls{display:grid;grid-template-columns:1fr;gap:8px;margin-top:14px}
+.activeCard.finished .clock{color:var(--ok)}
+.activeCard.finished .fill{background:var(--ok)}
 .empty{color:var(--muted);padding:24px 8px;text-align:center}
 .footer{color:var(--muted);font-size:12px;text-align:center;margin-top:18px}
 
@@ -86,10 +84,10 @@ input{
 .modalButtons{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
 
 @media (max-width:420px){
-  .clock{font-size:32px}
-  .item{padding:11px}
+  .clock{font-size:38px}
+  .itemTile{min-height:54px;padding:10px 8px;font-size:14px}
   .controls{gap:6px}
-  .controls button{padding:10px 6px;font-size:13px}
+  .controls button{padding:10px 8px;font-size:14px}
 }
 </style>
 </head>
@@ -167,7 +165,7 @@ function todayKey(){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 function freshState(){
-  return {date:todayKey(),active:null,lastTick:Date.now(),activeModuleId:null,modules:[]};
+  return {date:todayKey(),active:null,lastTick:Date.now(),activeModuleId:null,selectedItemId:null,modules:[]};
 }
 function migrate(){
   for(const oldKey of ["routineTimers_v3","routineTimers_v2"]){
@@ -178,6 +176,7 @@ function migrate(){
         old.active=old.active||null;
         old.lastTick=old.lastTick||Date.now();
         old.activeModuleId=old.activeModuleId || (old.modules[0]?.id ?? null);
+        old.selectedItemId=old.selectedItemId || null;
         return old;
       }
     }catch(e){}
@@ -196,8 +195,16 @@ function load(){
     if(!s.activeModuleId || !s.modules.some(m=>m.id===s.activeModuleId)){
       s.activeModuleId=s.modules[0]?.id ?? null;
     }
+    if(s.selectedItemId && !findItemInModules(s.modules,s.selectedItemId)) s.selectedItemId=null;
     return s;
   }catch(e){ return freshState(); }
+}
+function findItemInModules(modules,itemId){
+  for(const m of modules||[]){
+    const i=(m.items||[]).find(x=>x.id===itemId);
+    if(i) return i;
+  }
+  return null;
 }
 let state=load();
 
@@ -281,35 +288,44 @@ function render(){
         <button class="small danger" data-action="deleteModule" data-mid="${m.id}">Delete</button>
       </div>
     </div>
-    <div class="items ${m.items.length>1?"two":""}"></div>`;
+    <div class="itemTiles"></div>
+    <div class="activeItemArea"></div>`;
 
-  const itemsRoot=section.querySelector(".items");
+  const tilesRoot=section.querySelector(".itemTiles");
+  const activeArea=section.querySelector(".activeItemArea");
   if(m.items.length===0){
-    itemsRoot.innerHTML='<div class="empty">No items in this module yet.</div>';
+    tilesRoot.innerHTML='<div class="empty">No items in this module yet.</div>';
   }else{
+    if(!state.selectedItemId || !m.items.some(i=>i.id===state.selectedItemId)){
+      state.selectedItemId=m.items.find(i=>i.id===state.active)?.id ?? m.items[0].id;
+    }
     for(const i of m.items){
+      const completed=i.duration-i.remaining;
+      const statusClass=i.remaining===0 ? "finished" : completed>0 ? "inProgress" : "notStarted";
+      const tile=document.createElement("button");
+      tile.className=`itemTile ${statusClass}${state.selectedItemId===i.id?" selected":""}`;
+      tile.dataset.action="selectItem";
+      tile.dataset.iid=i.id;
+      tile.textContent=i.name;
+      tilesRoot.appendChild(tile);
+    }
+    const i=m.items.find(x=>x.id===state.selectedItemId) || m.items[0];
+    if(i){
       const active=state.active===i.id;
       const pct=Math.max(0,Math.min(100,i.remaining/i.duration*100));
-      const doneMinutes=Math.round((i.duration-i.remaining)/60);
-      const totalMinutes=Math.round(i.duration/60);
-
-      const el=document.createElement("div");
-      el.className="item"+(i.remaining===0?" done":"");
-      el.innerHTML=`
-        <div class="itemTop">
-          <div class="itemName">${escapeHtml(i.name)}</div>
-        </div>
+      const card=document.createElement("div");
+      card.className="activeCard"+(i.remaining===0?" finished":"");
+      card.innerHTML=`
+        <div class="activeCardHeader">${escapeHtml(i.name)}</div>
         <div class="clock">${fmt(i.remaining)}</div>
         <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
         <div class="controls">
-          <button class="primary" data-action="toggle" data-iid="${i.id}">
-            ${active?"Pause":i.remaining===0?"Done":"Start"}
-          </button>
+          <button class="primary" data-action="toggle" data-iid="${i.id}">${active?"Pause":i.remaining===0?"Done":"Start"}</button>
           <button data-action="logTime" data-iid="${i.id}">Log time</button>
           <button data-action="editItem" data-mid="${m.id}" data-iid="${i.id}">Edit</button>
           <button class="danger" data-action="resetItem" data-iid="${i.id}">Reset</button>
         </div>`;
-      itemsRoot.appendChild(el);
+      activeArea.appendChild(card);
     }
   }
 
@@ -355,6 +371,7 @@ document.getElementById("saveItem").onclick=()=>{
       if(mins===0){
         if(state.active===i.id) state.active=null;
         m.items=m.items.filter(x=>x.id!==i.id);
+        if(state.selectedItemId===i.id) state.selectedItemId=m.items[0]?.id ?? null;
       }else{
         const duration=mins*60;
         const wasFull=i.remaining===i.duration;
@@ -367,7 +384,11 @@ document.getElementById("saveItem").onclick=()=>{
     if(mins<1) return;
     const duration=mins*60;
     const m=state.modules.find(x=>x.id===editingItemRef.moduleId);
-    if(m) m.items.push({id:uid(),name,duration,remaining:duration});
+    if(m){
+      const newItem={id:uid(),name,duration,remaining:duration};
+      m.items.push(newItem);
+      state.selectedItemId=newItem.id;
+    }
   }
 
   save(); itemModal.classList.remove("show"); render();
@@ -397,6 +418,13 @@ document.addEventListener("click",e=>{
 
   if(a==="switchTab"){
     state.activeModuleId=b.dataset.mid;
+    const m=state.modules.find(x=>x.id===state.activeModuleId);
+    state.selectedItemId=m?.items.find(i=>i.id===state.active)?.id ?? m?.items[0]?.id ?? null;
+    save(); render();
+  }
+
+  if(a==="selectItem"){
+    state.selectedItemId=b.dataset.iid;
     save(); render();
   }
 
@@ -425,6 +453,7 @@ document.addEventListener("click",e=>{
       const idx=state.modules.findIndex(x=>x.id===source.id);
       state.modules.splice(idx+1,0,copy);
       state.activeModuleId=copy.id;
+      state.selectedItemId=copy.items[0]?.id ?? null;
       save(); render();
     }
   }
