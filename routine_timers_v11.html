@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0f172a" />
+<title>Routine Timers</title>
+<style>
+:root{
+  --bg:#0f172a; --panel:#111827; --panel2:#1f2937; --text:#f8fafc;
+  --muted:#94a3b8; --accent:#38bdf8; --ok:#34d399; --danger:#fb7185;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  margin:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;
+  background:linear-gradient(180deg,#0f172a,#020617);color:var(--text);min-height:100vh;
+}
+.wrap{max-width:760px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 18px) 14px calc(env(safe-area-inset-bottom) + 28px)}
+h1{font-size:30px;margin:0 0 4px}
+.sub{color:var(--muted);font-size:14px;margin-bottom:14px}
+button,input{font:inherit}
+button{
+  border:0;border-radius:14px;padding:12px 14px;font-weight:700;
+  background:var(--panel2);color:white;min-height:44px
+}
+button.primary{background:var(--accent);color:#082f49}
+button.danger{color:#fecdd3}
+button.small{padding:9px 11px;font-size:14px}
+.topbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+
+.tabs{
+  display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;margin-bottom:6px;
+  scrollbar-width:none
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex:0 0 auto;white-space:nowrap;background:#0b1220;color:var(--muted);
+  border:1px solid rgba(255,255,255,.08)
+}
+.tab.active{background:var(--accent);color:#082f49}
+
+.module{
+  background:rgba(17,24,39,.94);border:1px solid rgba(255,255,255,.08);
+  border-radius:22px;padding:16px;box-shadow:0 8px 28px rgba(0,0,0,.22)
+}
+.moduleHeader{margin-bottom:12px}
+.moduleTitle{font-size:23px;font-weight:800}
+.moduleMeta{color:var(--muted);font-size:13px;margin-top:4px}
+.moduleActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.itemTiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.itemTile{min-width:0;min-height:58px;border-radius:14px;padding:12px 10px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:15px;font-weight:800;line-height:1.2;overflow-wrap:anywhere;border:2px solid transparent;color:white}
+.itemTile.notStarted{background:#2563eb}
+.itemTile.inProgress{background:#ea580c}
+.itemTile.finished{background:#16a34a}
+.itemTile.selected{border-color:white;box-shadow:0 0 0 2px rgba(255,255,255,.15)}
+.activeCard{background:#0b1220;border-radius:20px;padding:16px}
+.activeCardHeader{font-size:22px;font-weight:800;overflow-wrap:anywhere;min-width:0}
+.activeCardHeading{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.binaryStatus{font-size:18px;font-weight:750;padding:16px 0 6px;color:var(--accent)}
+.binaryStatus.complete{color:var(--ok)}
+.itemHint{color:var(--muted);font-size:12px;line-height:1.4;margin-top:8px;margin-bottom:8px}
+.error{color:#fecdd3;font-size:13px;margin-top:8px;min-height:1em}
+button:disabled{opacity:.5}
+
+.clock{font-variant-numeric:tabular-nums;font-size:46px;font-weight:850;letter-spacing:-1px;margin:14px 0 10px;white-space:nowrap}
+.bar{height:8px;border-radius:999px;background:#111827;overflow:hidden}
+.fill{height:100%;background:var(--accent);transition:width .25s linear}
+.controls{display:grid;grid-template-columns:1fr;gap:8px;margin-top:14px}
+.activeCard.finished .clock{color:var(--ok)}
+.activeCard.finished .fill{background:var(--ok)}
+.empty{color:var(--muted);padding:24px 8px;text-align:center}
+.footer{color:var(--muted);font-size:12px;text-align:center;margin-top:18px}
+
+.modalBackdrop{
+  position:fixed;inset:0;background:rgba(0,0,0,.58);display:none;align-items:flex-end;z-index:20
+}
+.modalBackdrop.show{display:flex}
+.modal{
+  width:100%;max-width:620px;margin:0 auto;background:#111827;border-radius:24px 24px 0 0;
+  padding:18px 16px calc(env(safe-area-inset-bottom) + 18px)
+}
+.modal h2{margin:0 0 14px;font-size:22px}
+.field{margin:12px 0}
+label{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}
+input{
+  width:100%;padding:13px 14px;border-radius:13px;border:1px solid rgba(255,255,255,.12);
+  background:#0b1220;color:white;font-size:17px
+}
+.modalButtons{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+
+@media (max-width:420px){
+  .clock{font-size:38px}
+  .itemTile{min-height:54px;padding:10px 8px;font-size:14px}
+  .controls{gap:6px}
+  .controls button{padding:10px 8px;font-size:14px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Routine Timers</h1>
+  <div class="sub">Tap a task to manage it. Blue: new · Orange: in progress · Green: done.</div>
+
+  <div class="topbar">
+    <button class="primary" id="addModuleBtn">+ Add Module</button>
+    <button id="resetDayBtn">Reset Today</button>
+  </div>
+
+  <div id="tabs" class="tabs"></div>
+  <div id="moduleView"></div>
+
+  <div class="footer">Only one timer runs at a time. Your modules and remaining time stay on this device.</div>
+</div>
+
+<div class="modalBackdrop" id="moduleModal">
+  <div class="modal">
+    <h2 id="moduleModalTitle">Add Module</h2>
+    <div class="field">
+      <label>Module name</label>
+      <input id="moduleName" placeholder="e.g. Morning Routine">
+    </div>
+    <div class="modalButtons">
+      <button id="cancelModule">Cancel</button>
+      <button class="primary" id="saveModule">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modalBackdrop" id="itemModal">
+  <div class="modal">
+    <h2 id="itemModalTitle">Add Item</h2>
+    <div class="field">
+      <label>Item name</label>
+      <input id="itemName" placeholder="e.g. Reading">
+    </div>
+    <div class="field">
+      <label for="itemMinutes">Minutes (enter −100 for a binary task)</label>
+      <input id="itemMinutes" type="number" min="-100" step="1" inputmode="text" placeholder="30">
+      <div class="itemHint">Enter <b>−100</b> for a Done/Reset task. In Edit, enter <b>0</b> to delete an item.</div>
+      <button type="button" class="small" id="quickBinary">Set to −100 (binary)</button>
+      <div id="itemError" class="error" role="alert"></div>
+    </div>
+    <div class="modalButtons">
+      <button id="cancelItem">Cancel</button>
+      <button class="primary" id="saveItem">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modalBackdrop" id="logModal">
+  <div class="modal">
+    <h2>Log Completed Time</h2>
+    <div class="field">
+      <label id="logItemLabel">Minutes completed</label>
+      <input id="logMinutes" type="number" min="1" step="1" inputmode="numeric" placeholder="15">
+    </div>
+    <div class="modalButtons">
+      <button id="cancelLog">Cancel</button>
+      <button class="primary" id="saveLog">Apply</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// v11 stores its own copy of the data and imports the previous v10/v4 store once.
+const KEY="routineTimers_v11";
+const LEGACY_KEYS=["routineTimers_v4","routineTimers_v3","routineTimers_v2"];
+let editingModuleId=null;
+let editingItemRef=null;
+let loggingItemId=null;
+
+function uid(){
+  return Math.random().toString(36).slice(2)+Date.now().toString(36);
+}
+function todayKey(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function freshState(){
+  return {date:todayKey(),active:null,lastTick:Date.now(),activeModuleId:null,selectedItemId:null,modules:[]};
+}
+function isBinary(i){ return Boolean(i && (i.type==="binary" || i.duration===-100)); }
+function isDone(i){ return isBinary(i) && i.completed===true; }
+function resetItemValue(i){
+  if(isBinary(i)) i.completed=false;
+  else i.remaining=i.duration;
+}
+function readStore(key){
+  try{
+    const obj=JSON.parse(localStorage.getItem(key));
+    return obj && Array.isArray(obj.modules) ? obj : null;
+  }catch(e){ return null; }
+}
+function load(){
+  let s=readStore(KEY);
+  if(!s){
+    for(const oldKey of LEGACY_KEYS){
+      s=readStore(oldKey);
+      if(s) break;
+    }
+  }
+  if(!s) return freshState();
+  s.modules=s.modules.filter(x=>x && Array.isArray(x.items));
+  s.active=s.active||null;
+  s.lastTick=Number.isFinite(s.lastTick)?s.lastTick:Date.now();
+  for(const m of s.modules){
+    for(const i of m.items){
+      if(isBinary(i)){
+        i.type="binary";
+        i.duration=-100;
+        i.remaining=0;
+        i.completed=Boolean(i.completed);
+      }else{
+        i.type="timer";
+        i.duration=Math.max(60,Number(i.duration)||60);
+        i.remaining=Math.max(0,Math.min(i.duration,Number(i.remaining ?? i.duration)));
+      }
+    }
+  }
+  if(s.date!==todayKey()){
+    s.date=todayKey();
+    s.active=null;
+    s.lastTick=Date.now();
+    for(const m of s.modules) for(const i of m.items) resetItemValue(i);
+  }
+  if(!s.modules.some(m=>m.id===s.activeModuleId)) s.activeModuleId=s.modules[0]?.id ?? null;
+  if(s.active && !s.modules.some(m=>m.items.some(i=>i.id===s.active && !isBinary(i)))) s.active=null;
+  if(!s.selectedItemId || !s.modules.some(m=>m.items.some(i=>i.id===s.selectedItemId))) s.selectedItemId=null;
+  return s;
+}
+let state=load();
+function persist(){
+  try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){console.warn("Unable to save routine timers",e);}
+}
+function commit(){
+  state.lastTick=Date.now();
+  persist();
+}
+function getModule(mid){return state.modules.find(m=>m.id===mid);}
+function findItem(itemId){
+  for(const m of state.modules){
+    const i=m.items.find(x=>x.id===itemId);
+    if(i) return i;
+  }
+  return null;
+}
+function advanceTime(){
+  const now=Date.now();
+  if(state.date!==todayKey()){
+    state.date=todayKey();state.active=null;state.lastTick=now;
+    for(const m of state.modules) for(const i of m.items) resetItemValue(i);
+    persist();
+    return true;
+  }
+  if(!state.active) return false;
+  const item=findItem(state.active);
+  if(!item || isBinary(item)){
+    state.active=null;state.lastTick=now;persist();return false;
+  }
+  if(state.lastTick>now) state.lastTick=now;
+  const elapsed=Math.max(0,Math.floor((now-state.lastTick)/1000));
+  if(elapsed>0){
+    item.remaining=Math.max(0,item.remaining-elapsed);
+    state.lastTick+=elapsed*1000;
+    if(item.remaining<=0){
+      state.active=null;
+      state.lastTick=now;
+      if(navigator.vibrate) navigator.vibrate([150,80,150]);
+    }
+    persist();
+  }
+  return false;
+}
+function fmt(sec){
+  sec=Math.max(0,Math.floor(sec));
+  const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;
+  return h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${m}:${String(s).padStart(2,"0")}`;
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+}
+function tileStatus(i){
+  if(isBinary(i)) return isDone(i)?"finished":"notStarted";
+  return i.remaining<=0?"finished":(state.active===i.id || i.remaining<i.duration)?"inProgress":"notStarted";
+}
+function summary(m){
+  const timed=m.items.filter(i=>!isBinary(i));
+  const binaries=m.items.filter(isBinary);
+  const remain=Math.ceil(timed.reduce((s,i)=>s+i.remaining,0)/60);
+  const total=Math.ceil(timed.reduce((s,i)=>s+i.duration,0)/60);
+  const left=binaries.filter(i=>!isDone(i)).length;
+  return `${remain}/${total} min remaining · ${left}/${binaries.length} binary tasks left`;
+}
+function selectDefault(m){
+  if(!m){state.selectedItemId=null;return;}
+  if(!m.items.some(i=>i.id===state.selectedItemId)){
+    state.selectedItemId=m.items.find(i=>i.id===state.active)?.id ?? m.items[0]?.id ?? null;
+  }
+}
+function render(){
+  advanceTime();
+  const tabs=document.getElementById("tabs");
+  const view=document.getElementById("moduleView");
+  tabs.replaceChildren();view.replaceChildren();
+  if(state.modules.length===0){
+    view.innerHTML='<div class="empty">No modules yet. Tap “Add Module” to create one.</div>';
+    return;
+  }
+  if(!getModule(state.activeModuleId)) state.activeModuleId=state.modules[0].id;
+  for(const m of state.modules){
+    const b=document.createElement("button");
+    b.type="button";b.className="tab"+(m.id===state.activeModuleId?" active":"");
+    b.dataset.action="switchTab";b.dataset.mid=m.id;
+    b.setAttribute("aria-selected",m.id===state.activeModuleId?"true":"false");
+    b.textContent=m.name;
+    tabs.appendChild(b);
+  }
+  const m=getModule(state.activeModuleId);
+  if(!m) return;
+  selectDefault(m);
+  const section=document.createElement("section");
+  section.className="module";
+  section.innerHTML=`
+    <div class="moduleHeader">
+      <div class="moduleTitle">${escapeHtml(m.name)}</div>
+      <div class="moduleMeta" id="moduleMeta">${summary(m)}</div>
+      <div class="moduleActions">
+        <button type="button" class="small primary" data-action="addItem" data-mid="${m.id}">+ Item</button>
+        <button type="button" class="small" data-action="copyModule" data-mid="${m.id}">Copy</button>
+        <button type="button" class="small" data-action="editModule" data-mid="${m.id}">Edit</button>
+        <button type="button" class="small danger" data-action="deleteModule" data-mid="${m.id}">Delete</button>
+      </div>
+    </div>
+    <div class="itemTiles"></div>
+    <div class="activeItemArea"></div>`;
+  const tilesRoot=section.querySelector(".itemTiles");
+  const detail=section.querySelector(".activeItemArea");
+  if(m.items.length===0){
+    tilesRoot.innerHTML='<div class="empty">No items in this module yet.</div>';
+  }else{
+    for(const i of m.items){
+      const tile=document.createElement("button");
+      tile.type="button";
+      tile.className=`itemTile ${tileStatus(i)}${state.selectedItemId===i.id?" selected":""}`;
+      tile.dataset.action="selectItem";tile.dataset.iid=i.id;
+      tile.setAttribute("aria-pressed",state.selectedItemId===i.id?"true":"false");
+      tile.setAttribute("aria-label",`${i.name}, ${isBinary(i)?(isDone(i)?"done":"not done"):(tileStatus(i)==="finished"?"finished":tileStatus(i)==="inProgress"?"in progress":"not started")}`);
+      tile.textContent=i.name;
+      tilesRoot.appendChild(tile);
+    }
+    const i=m.items.find(x=>x.id===state.selectedItemId) ?? m.items[0];
+    const card=document.createElement("div");
+    card.className="activeCard"+((isBinary(i)?isDone(i):i.remaining<=0)?" finished":"");
+    card.dataset.itemId=i.id;
+    if(isBinary(i)){
+      card.innerHTML=`
+        <div class="activeCardHeading">
+          <div class="activeCardHeader">${escapeHtml(i.name)}</div>
+          <button type="button" class="small" data-action="editItem" data-mid="${m.id}" data-iid="${i.id}" aria-label="Edit ${escapeHtml(i.name)}">Edit</button>
+        </div>
+        <div class="binaryStatus${isDone(i)?" complete":""}">${isDone(i)?"✓ Completed":"Not completed"}</div>
+        <div class="controls">
+          <button type="button" class="primary" data-action="markDone" data-iid="${i.id}" ${isDone(i)?"disabled":""}>${isDone(i)?"✓ Done":"Mark Done"}</button>
+          <button type="button" data-action="resetItem" data-iid="${i.id}">Reset</button>
+        </div>`;
+    }else{
+      const active=state.active===i.id;
+      const pct=Math.max(0,Math.min(100,i.remaining/i.duration*100));
+      card.innerHTML=`
+        <div class="activeCardHeader">${escapeHtml(i.name)}</div>
+        <div class="clock">${fmt(i.remaining)}</div>
+        <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
+        <div class="controls">
+          <button type="button" class="primary" data-action="toggle" data-iid="${i.id}" ${i.remaining<=0?"disabled":""}>${active?"Pause":i.remaining<=0?"Done":"Start"}</button>
+          <button type="button" data-action="logTime" data-iid="${i.id}" ${i.remaining<=0?"disabled":""}>Log time</button>
+          <button type="button" data-action="editItem" data-mid="${m.id}" data-iid="${i.id}">Edit</button>
+          <button type="button" class="danger" data-action="resetItem" data-iid="${i.id}">Reset</button>
+        </div>`;
+    }
+    detail.appendChild(card);
+  }
+  view.appendChild(section);
+}
+function updateLive(){
+  const m=getModule(state.activeModuleId);
+  if(!m) return;
+  const meta=document.getElementById("moduleMeta");
+  if(meta) meta.textContent=summary(m);
+  for(const tile of document.querySelectorAll(".itemTile")){
+    const i=findItem(tile.dataset.iid);
+    if(!i) continue;
+    tile.classList.remove("finished","inProgress","notStarted");
+    tile.classList.add(tileStatus(i));
+  }
+  const i=findItem(state.selectedItemId);
+  const card=document.querySelector(".activeCard");
+  if(!card || !i || card.dataset.itemId!==i.id || isBinary(i)) return;
+  const clock=card.querySelector(".clock");
+  if(clock) clock.textContent=fmt(i.remaining);
+  const fill=card.querySelector(".fill");
+  if(fill) fill.style.width=`${Math.max(0,Math.min(100,i.remaining/i.duration*100))}%`;
+  card.classList.toggle("finished",i.remaining<=0);
+  const button=card.querySelector('[data-action="toggle"]');
+  if(button){
+    button.textContent=state.active===i.id?"Pause":i.remaining<=0?"Done":"Start";
+    button.disabled=i.remaining<=0;
+  }
+  const log=card.querySelector('[data-action="logTime"]');
+  if(log) log.disabled=i.remaining<=0;
+}
+
+const moduleModal=document.getElementById("moduleModal");
+const itemModal=document.getElementById("itemModal");
+const logModal=document.getElementById("logModal");
+function closeModal(modal){modal.classList.remove("show");}
+function openModuleModal(mid=null){
+  editingModuleId=mid;
+  const m=getModule(mid);
+  document.getElementById("moduleModalTitle").textContent=m?"Edit Module":"Add Module";
+  document.getElementById("moduleName").value=m?.name||"";
+  moduleModal.classList.add("show");
+  setTimeout(()=>document.getElementById("moduleName").focus(),100);
+}
+function openItemModal(mid,iid=null){
+  const m=getModule(mid);
+  if(!m) return;
+  const i=m.items.find(x=>x.id===iid);
+  editingItemRef={moduleId:mid,itemId:iid};
+  document.getElementById("itemModalTitle").textContent=i?"Edit Item":"Add Item";
+  document.getElementById("itemName").value=i?.name||"";
+  document.getElementById("itemMinutes").value=i?(isBinary(i)?-100:Math.round(i.duration/60)):"";
+  document.getElementById("itemError").textContent="";
+  itemModal.classList.add("show");
+  setTimeout(()=>document.getElementById("itemName").focus(),100);
+}
+function saveModule(){
+  advanceTime();
+  const name=document.getElementById("moduleName").value.trim();
+  if(!name) return;
+  if(editingModuleId){
+    const m=getModule(editingModuleId);
+    if(m) m.name=name;
+  }else{
+    const m={id:uid(),name,items:[]};
+    state.modules.push(m);
+    state.activeModuleId=m.id;
+    state.selectedItemId=null;
+  }
+  commit();closeModal(moduleModal);render();
+}
+function saveItem(){
+  advanceTime();
+  if(!editingItemRef) return;
+  const name=document.getElementById("itemName").value.trim();
+  const raw=document.getElementById("itemMinutes").value.trim();
+  const mins=Number(raw);
+  const error=document.getElementById("itemError");
+  error.textContent="";
+  if(!raw || !Number.isInteger(mins) || mins>100000 || (mins!==-100 && mins<0)){
+    error.textContent="Enter whole minutes, or −100 for a binary task.";
+    return;
+  }
+  const m=getModule(editingItemRef.moduleId);
+  if(!m) return;
+  const i=editingItemRef.itemId?m.items.find(x=>x.id===editingItemRef.itemId):null;
+  if(mins===0){
+    if(!i){error.textContent="New items need a positive duration or −100.";return;}
+    if(state.active===i.id) state.active=null;
+    m.items=m.items.filter(x=>x.id!==i.id);
+    if(state.selectedItemId===i.id) state.selectedItemId=m.items[0]?.id ?? null;
+  }else{
+    if(!name){error.textContent="Enter an item name.";return;}
+    if(i){
+      const wasBinary=isBinary(i);
+      if(mins===-100){
+        if(state.active===i.id) state.active=null;
+        i.name=name;i.type="binary";i.duration=-100;i.remaining=0;
+        i.completed=wasBinary?isDone(i):false;
+      }else{
+        const duration=mins*60;
+        const doneSec=wasBinary?0:Math.max(0,i.duration-i.remaining);
+        i.name=name;i.type="timer";i.duration=duration;
+        i.remaining=Math.max(0,duration-doneSec);
+        delete i.completed;
+        if(state.active===i.id && i.remaining<=0) state.active=null;
+      }
+    }else{
+      const newItem=mins===-100
+        ? {id:uid(),name,type:"binary",duration:-100,remaining:0,completed:false}
+        : {id:uid(),name,type:"timer",duration:mins*60,remaining:mins*60};
+      m.items.push(newItem);
+      state.selectedItemId=newItem.id;
+    }
+  }
+  commit();closeModal(itemModal);render();
+}
+function saveLog(){
+  advanceTime();
+  const raw=document.getElementById("logMinutes").value;
+  const mins=Number(raw);
+  const i=findItem(loggingItemId);
+  if(!i || isBinary(i) || !Number.isInteger(mins) || mins<1) return;
+  if(state.active===i.id) state.active=null;
+  i.remaining=Math.max(0,i.remaining-mins*60);
+  commit();closeModal(logModal);render();
+}
+
+document.getElementById("addModuleBtn").addEventListener("click",()=>openModuleModal());
+document.getElementById("cancelModule").addEventListener("click",()=>closeModal(moduleModal));
+document.getElementById("saveModule").addEventListener("click",saveModule);
+document.getElementById("cancelItem").addEventListener("click",()=>closeModal(itemModal));
+document.getElementById("saveItem").addEventListener("click",saveItem);
+document.getElementById("quickBinary").addEventListener("click",()=>{
+  document.getElementById("itemMinutes").value=-100;
+  document.getElementById("itemError").textContent="";
+});
+document.getElementById("cancelLog").addEventListener("click",()=>closeModal(logModal));
+document.getElementById("saveLog").addEventListener("click",saveLog);
+
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button[data-action]");
+  if(!b) return;
+  advanceTime();
+  const a=b.dataset.action;
+  const mid=b.dataset.mid;
+  const iid=b.dataset.iid;
+  if(a==="switchTab"){
+    state.activeModuleId=mid;
+    const m=getModule(mid);
+    state.selectedItemId=m?.items.find(i=>i.id===state.active)?.id ?? m?.items[0]?.id ?? null;
+    commit();render();
+  }else if(a==="selectItem"){
+    state.selectedItemId=iid;commit();render();
+  }else if(a==="addItem"){
+    openItemModal(mid);
+  }else if(a==="editModule"){
+    openModuleModal(mid);
+  }else if(a==="editItem"){
+    openItemModal(mid,iid);
+  }else if(a==="copyModule"){
+    const source=getModule(mid);
+    if(!source) return;
+    const copy={
+      id:uid(),name:`${source.name} Copy`,
+      items:source.items.map(i=>isBinary(i)
+        ? {id:uid(),name:i.name,type:"binary",duration:-100,remaining:0,completed:false}
+        : {id:uid(),name:i.name,type:"timer",duration:i.duration,remaining:i.duration})
+    };
+    const idx=state.modules.findIndex(x=>x.id===source.id);
+    state.modules.splice(idx+1,0,copy);
+    state.activeModuleId=copy.id;
+    state.selectedItemId=copy.items[0]?.id ?? null;
+    commit();render();
+  }else if(a==="deleteModule"){
+    const m=getModule(mid);
+    if(m && confirm(`Delete "${m.name}" and all its items?`)){
+      if(m.items.some(x=>x.id===state.active)) state.active=null;
+      const idx=state.modules.findIndex(x=>x.id===mid);
+      state.modules.splice(idx,1);
+      if(state.activeModuleId===mid){
+        state.activeModuleId=state.modules[idx]?.id ?? state.modules[idx-1]?.id ?? null;
+        state.selectedItemId=getModule(state.activeModuleId)?.items[0]?.id ?? null;
+      }
+      commit();render();
+    }
+  }else if(a==="toggle"){
+    const i=findItem(iid);
+    if(!i || isBinary(i) || i.remaining<=0) return;
+    state.active=state.active===iid?null:iid;
+    commit();render();
+  }else if(a==="logTime"){
+    const i=findItem(iid);
+    if(!i || isBinary(i)) return;
+    loggingItemId=iid;
+    document.getElementById("logItemLabel").textContent=`Minutes completed for ${i.name}`;
+    document.getElementById("logMinutes").value="";
+    logModal.classList.add("show");
+    setTimeout(()=>document.getElementById("logMinutes").focus(),100);
+  }else if(a==="markDone"){
+    const i=findItem(iid);
+    if(!isBinary(i)) return;
+    i.completed=true;commit();render();
+  }else if(a==="resetItem"){
+    const i=findItem(iid);
+    if(!i) return;
+    resetItemValue(i);
+    if(state.active===iid) state.active=null;
+    commit();render();
+  }
+});
+
+document.getElementById("resetDayBtn").addEventListener("click",()=>{
+  advanceTime();
+  if(confirm("Reset every timer and binary task in all modules?")){
+    state.active=null;
+    for(const m of state.modules) for(const i of m.items) resetItemValue(i);
+    commit();render();
+  }
+});
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"){
+    advanceTime();render();
+  }else{
+    advanceTime();persist();
+  }
+});
+setInterval(()=>{
+  if(document.visibilityState!=="visible") return;
+  if(advanceTime()) render();
+  else updateLive();
+},500);
+advanceTime();
+persist();
+render();
+</script>
+</body>
+</html>
